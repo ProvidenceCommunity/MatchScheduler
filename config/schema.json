@@ -1,0 +1,1 @@
+[{"type":"string","name":"Match Admin","displayInOverview":true,"announceInDiscord":false},{"type":"select","name":"Streaming Platform","options":["Twitch","YouTube"],"displayInOverview":true,"announceInDiscord":false},{"type":"list","name":"Maps","options":{"type":"select","name":"map_select","options":["PAR","NY","HOK"]},"displayInOverview":false,"announceInDiscord":true}]

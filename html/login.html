@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Providence Match Scheduler</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+</head>
+<body>
+    <div id="app">
+        <v-app>
+            <v-container>
+                <v-row align="center">
+                    <v-spacer></v-spacer>
+                    <v-col cols="6">
+                        <v-card outline elevation="4">
+                            <v-card-title>Providence match scheduler</v-card-title>
+                            <v-card-text>Please login to schedule matches</v-card-text>
+                            <v-card-actions>
+                                <v-btn @click="login">Login with Discord</v-btn>
+                            </v-card-actions>
+                        </v-card>
+                    </v-col>
+                    <v-spacer></v-spacer>
+                </v-row>
+            </v-container>
+        </v-app>
+    </div>
+    <script>
+        new Vue({
+            el: '#app',
+            vuetify: new Vuetify( { theme: { dark: true }}),
+            data() {
+                return {
+                    discordLink: "%DISCORD_LOGIN%"
+                }
+            },
+            methods: {
+                login() {
+                    window.location.href = this.discordLink;
+                }
+            }
+        })
+    </script>
+</body>
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Providence Match Scheduler</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+</head>
+<body>
+    <div id="app">
+        <v-app>
+            <v-dialog v-model="createDialog" width="800px">
+                <v-card v-if="createDialog">
+                    <v-card-title>Add match</v-card-title>
+                    <v-card-text>
+                        Players: (1 per line)
+                        <v-textarea v-model="players"></v-textarea>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text @click="createDialog = false">Cancel</v-btn>
+                        <v-btn text @click="confirmCreate()">Add match</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+            <v-dialog v-model="finishDialog" width="800px">
+                <v-card v-if="finishDialog">
+                    <v-card-title>Finish match</v-card-title>
+                    <v-card-text>
+                        Are you sure you want to mark the match as finished and hide it from the list of matches?
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text @click="finishDialog = false">Cancel</v-btn>
+                        <v-btn text @click="confirmHide()">Mark match as finished</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+            <v-dialog v-model="editDialog" width="800px">
+                <v-card v-if="editDialog">
+                    <v-card-title>Edit match - {{ editIndex }}</v-card-title>
+                    <v-card-text>
+                        Match Date & Time:<br>
+                        <v-date-picker v-model="date" class="mt-4"></v-date-picker>
+                        <v-time-picker v-model="time"></v-time-picker>
+                        <v-divider class="my-2"></v-divider>
+                        Players: (1 per line)<br>
+                        <v-textarea v-model="players"></v-textarea><br>
+                        <v-divider class="my-2"></v-divider>
+                        Additional match information:<br>
+                        <match-field v-for="field of schema" :key="field.name"
+                                     :name="field.name" :value="match.additionalData[field.name]" :type="field.type" :options="field.options"
+                                     @change="(e) => match.additionalData[field.name] = e"
+                        ></match-field>
+                    </v-card-text>
+                    <v-card-actions>
+                        <v-btn text @click="editDialog = false">Cancel</v-btn>
+                        <v-btn text @click="confirmEdit()">Save</v-btn>
+                    </v-card-actions>
+                </v-card>
+            </v-dialog>
+            <v-container fluid>
+                <div style="width: 300px; position: absolute; right: 5px; z-index: 10">
+                    <v-alert v-for="(alert, index) of alerts" :key="index" type="success" dismissible transition="scale-transition" :value="alert.shown">{{ alert.text }}</v-alert>
+                </div>
+                <v-row>
+                    <v-spacer></v-spacer>
+                    <v-col cols="2">
+                        <v-card>
+                            <v-list-item>
+                                <v-list-item-title>Logged in as<br>{{ username }}</v-list-item-title>
+                                <v-list-item-avatar size="64"><img :src="avatarURL"></v-list-item-avatar>
+                            </v-list-item>
+                        </v-card><br>
+                        <v-divider></v-divider><br>
+                        <v-btn outlined rounded :disabled="currentPage === 0" @click="currentPage = 0">Matches</v-btn><br><br>
+                        <v-btn outlined rounded :disabled="currentPage === 1" @click="currentPage = 1">Match schema</v-btn><br><br>
+                        <v-btn outlined rounded :disabled="currentPage === 2" @click="currentPage = 2">Player discord mapping</v-btn><br><br>
+                        <v-btn outlined rounded :disabled="currentPage === 3" @click="currentPage = 3">System config</v-btn><br><br>
+                    </v-col>
+                    <v-col cols="6">
+                        <v-card v-if="currentPage === 0">
+                            <v-card-title>Matches</v-card-title>
+                            <v-card-text>
+                                <v-simple-table>
+                                    <template v-slot:default>
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Players</th>
+                                                <th v-for="header of trackedDetails()" :key="header.name">
+                                                    {{ header.name }}
+                                                </th>
+                                                <th width="100px">
+                                                    Actions<br>
+                                                    <v-btn icon small @click="addMatch()"><v-icon>mdi-plus-box</v-icon></v-btn>
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) in matches" v-if="!item.finished" :key="index">
+                                                <td>{{ localeDate(item.date) }}</td>
+                                                <td>{{ item.players.join(", ") }}</td>
+                                                <td v-for="header of trackedDetails()" :key="'m' + index + '-' + header.name">
+                                                    {{ item.additionalData[header.name] }}
+                                                </td>
+                                                <td align="right">
+                                                    <v-btn fab x-small @click="editMatch(index)"><v-icon>mdi-pencil</v-icon></v-btn>
+                                                    <v-btn fab x-small @click="finishMatch(index)"><v-icon>mdi-check</v-icon></v-btn>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </template>
+                                </v-simple-table>
+                            </v-card-text>
+                        </v-card>
+                        <v-card v-if="currentPage === 1">
+                            <v-card-title>Match schema</v-card-title>
+                            <v-card-text>
+                                <v-btn @click="addSchema()">Add</v-btn>
+                                <v-simple-table>
+                                    <template v-slot:default>
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Type</th>
+                                                <th>Options</th>
+                                                <th>Track in table</th>
+                                                <th>Display in discord</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) of schemaEditor" :key="index">
+                                                <td><v-text-field v-model="item.name"></v-text-field></td>
+                                                <td><v-select :items="['string', 'select', 'list']" v-model="item.type"></v-select></td>
+                                                <td><v-text-field v-model="item.options"></v-text-field></td>
+                                                <td><v-checkbox v-model="item.displayInOverview"></v-checkbox></td>
+                                                <td><v-checkbox v-model="item.announceInDiscord"></v-checkbox></td>
+                                                <td><v-btn @click="deleteSchema(index)">Delete</v-btn></td>
+                                            </tr>
+                                        </tbody>
+                                    </template>
+                                </v-simple-table>
+                                <v-btn @click="saveSchema()">Save</v-btn>
+                            </v-card-text>
+                        </v-card>
+                        <v-card v-if="currentPage === 2">
+                            <v-card-title>Discord player mappings</v-card-title>
+                            <v-card-text>
+                                <v-btn @click="addPlayer()">Add</v-btn>
+                                <v-simple-table>
+                                    <template v-slot:default>
+                                        <thead>
+                                            <tr>
+                                                <th>Player name</th>
+                                                <th>Discord id</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr v-for="(item, index) of playerMappings" :key="index">
+                                                <td><v-text-field v-model="item.name"></v-text-field></td>
+                                                <td><v-text-field v-model="item.id"></v-text-field></td>
+                                                <td><v-btn @click="deletePlayer(index)">Delete</v-btn></td>
+                                            </tr>
+                                        </tbody>
+                                    </template>
+                                </v-simple-table>
+                                <v-btn @click="savePlayers()">Save</v-btn>
+                            </v-card-text>
+                        </v-card>
+                        <v-card v-if="currentPage === 3">
+                            <v-card-title>System config</v-card-title>
+                            <v-card-text>
+                                <v-textarea v-model="systemConfig" rows="20"></v-textarea>
+                                <v-btn @click="reloadConfig()">Reload config</v-btn>
+                                <v-btn @click="saveConfig()">Save config</v-btn>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                    <v-spacer></v-spacer>
+                </v-row>
+            </v-container>
+        </v-app>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@2.3.1/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        Vue.component('match-field', {
+            data() {
+                return {
+                    internalValue: this.value
+                }
+            },
+            props: {
+                hasName: {
+                    type: Boolean,
+                    default: true
+                },
+                name: String,
+                type: String,
+                options: null,
+                value: [String, Array]
+            },
+            template: `
+              <div>
+                  <span v-if="hasName">{{name}}:</span>
+                  <v-text-field outlined v-model="internalValue" v-if="type === 'string'" @change="update()"></v-text-field>
+                  <v-select outlined :items="options" v-model="internalValue" v-if="type === 'select'" @change="update()">
+                    <template v-slot:append-outer>
+                      <v-btn text v-if="type === 'select'" @click="randomize()">Random</v-btn>
+                    </template>
+                  </v-select>
+                  <v-btn icon v-if="type === 'list'" @click="addListItem()"><v-icon>mdi-plus-box</v-icon></v-btn>
+                  <v-btn icon v-if="type === 'list'" @click="removeListItem()"><v-icon>mdi-minus-box</v-icon></v-btn>
+                  <v-list v-if="type === 'list'">
+                    <v-list-item v-for="(item, index) of internalValue" :key="index">
+                      <v-list-item-icon><v-icon>mdi-circle-medium</v-icon></v-list-item-icon>
+                      <match-field :type="options.type" :options="options.options" :value="internalValue[index]" @change="(e) => updateList(index, e)" :has-name="false" style="width: 100%"></match-field>
+                    </v-list-item>
+                  </v-list>
+              </div>
+            `,
+            methods: {
+                randomize() {
+                    this.internalValue = this.options[Math.floor(Math.random()*this.options.length)];
+                    this.update();
+                },
+                addListItem() {
+                    if (typeof this.internalValue !== "object") {
+                        this.internalValue = [];
+                    }
+                    this.internalValue.push("");
+                    this.update();
+                },
+                removeListItem() {
+                    this.internalValue.pop();
+                    this.update();
+                },
+                updateList(index, element) {
+                    this.internalValue[index] = element;
+                    this.update();
+                },
+                update() {
+                    this.$emit('change', this.internalValue);
+                },
+            }
+        })
+    </script>
+    <script>
+        new Vue({
+            el: '#app',
+            vuetify: new Vuetify( { theme: { dark: true }}),
+            data() {
+                return {
+                    currentPage: 0,
+                    username: "",
+                    avatarURL: "",
+                    matches: [],
+                    schema: [],
+                    createDialog: false,
+                    finishDialog: false,
+                    editDialog: false,
+                    match: {
+                        date: null,
+                        players: [],
+                        additionalData: {},
+                        finished: false
+                    },
+                    editIndex: -1,
+                    players: "",
+                    date: "2022-04-10",
+                    time: "22:35",
+                    systemConfig: "",
+                    schemaEditor: [],
+                    playerMappings: [],
+                    alerts: []
+                }
+            },
+            methods: {
+                addMatch() {
+                    this.players = "";
+                    this.createDialog = true;
+                },
+                async editMatch(index) {
+                    this.editIndex = index;
+                    this.match = this.matches[this.editIndex];
+
+                    let dt;
+                    if (this.match.date !== null) {
+                        dt = luxon.DateTime.fromISO(this.match.date, { zone: "Europe/Berlin" });
+                    } else {
+                        dt = luxon.DateTime.local();
+                    }
+                    this.date = dt.toISODate();
+                    this.time = dt.toFormat("HH:mm");
+                    this.players = this.match.players.join("\n");
+
+                    this.editDialog = true;
+                },
+                finishMatch(index) {
+                    this.editIndex = index;
+                    this.finishDialog = true;
+                },
+                async confirmHide() {
+                    let match = await axios.get("api/match?matchId=" + this.editIndex);
+                    let matchData = match.data;
+                    matchData.finished = true;
+                    await axios.patch("api/match?matchId=" + this.editIndex, {match: matchData});
+                    await this.updateMatches();
+                    this.finishDialog = false;
+                    this.pushAlert("Successfully marked match as finished.");
+                },
+                async confirmCreate() {
+                    await axios.put("api/match", {players: this.players.split("\n")});
+                    await this.updateMatches();
+                    this.createDialog = false;
+                    this.pushAlert("Successfully created the match.");
+                },
+                async confirmEdit() {
+                    const dt = luxon.DateTime.fromFormat(this.date + " " + this.time, "yyyy-LL-dd HH:mm");
+                    const realDT = dt.setZone("Europe/Berlin");
+                    this.match.date = realDT.toISO();
+                    this.match.players = this.players.split("\n");
+
+                    await axios.patch("api/match?matchId=" + this.editIndex, {match: this.match});
+                    await this.updateMatches();
+                    this.editDialog = false;
+                    this.pushAlert("Successfully scheduled the match.");
+                },
+                localeDate(iso) {
+                    if (iso !== null) {
+                        return luxon.DateTime.fromISO(iso).toLocaleString(luxon.DateTime.DATETIME_SHORT);
+                    } else {
+                        return "not scheduled";
+                    }
+                },
+                async updateMatches() {
+                    const matches = await axios.get("api/matches");
+                    this.matches = matches.data;
+                },
+                async updateConfig() {
+                    const serverConfig = await axios.get("api/config");
+                    this.systemConfig = JSON.stringify(serverConfig.data, null, 4);
+                },
+                async updateSchema() {
+                    const schema = await axios.get("api/schema");
+                    this.schema = schema.data;
+                    this.schemaEditor = JSON.parse(JSON.stringify(schema.data));
+                    for (const schema of this.schemaEditor) {
+                        schema.options = JSON.stringify(schema.options);
+                    }
+                },
+                async reloadConfig() {
+                    await axios.get("api/reloadConfig");
+                    await this.updateConfig();
+                    await this.updateMatches();
+                    await this.updateSchema();
+                    await this.updatePlayers();
+                    this.pushAlert("Successfully reloaded all configs.");
+                },
+                async saveConfig() {
+                    await axios.patch("api/config", {config: JSON.parse(this.systemConfig)});
+                    this.pushAlert("Successfully saved system config.");
+                },
+                addSchema() {
+                    this.schemaEditor.push({
+                        name: "",
+                        type: "string",
+                        options: "",
+                        displayInOverview: false,
+                        announceInDiscord: false
+                    });
+                },
+                deleteSchema(index) {
+                    this.schemaEditor.splice(index, 1);
+                },
+                async saveSchema() {
+                    for (const schema of this.schemaEditor) {
+                        schema.options = JSON.parse(schema.options);
+                    }
+                    await axios.patch("api/schema", {schema: this.schemaEditor});
+                    await this.updateSchema();
+                    this.pushAlert("Successfully saved match schema.");
+                },
+                addPlayer() {
+                    this.playerMappings.push({name: "", id: ""});
+                },
+                deletePlayer(index) {
+                    this.playerMappings.splice(index, 1);
+                },
+                async savePlayers() {
+                    await axios.patch("api/players", {players: this.playerMappings});
+                    await this.updatePlayers();
+                    this.pushAlert("Successfully saved player mappings.");
+                },
+                async updatePlayers() {
+                    const playerInfo = await axios.get("api/players");
+                    this.playerMappings = playerInfo.data;
+                },
+                pushAlert(text) {
+                    let index = this.alerts.push({text: text, shown: false}) - 1;
+                    Vue.nextTick(() => {
+                        this.alerts[index].shown = true;
+                    });
+                    setTimeout(() => {
+                        this.alerts[index].shown = false;
+                    }, 5000);
+                },
+                trackedDetails() {
+                    return this.schema.filter(e => { return e.displayInOverview });
+                }
+            },
+            async created() {
+                const userInfo = await axios.get("api/user");
+                this.username = userInfo.data.name;
+                this.avatarURL = userInfo.data.avatar;
+                await this.updateMatches();
+                await this.updateSchema();
+                await this.updateConfig();
+                await this.updatePlayers();
+            }
+        })
+    </script>
+</body>
+</html>
