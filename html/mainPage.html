@@ -82,37 +82,16 @@
                     <v-col cols="6">
                         <v-card v-if="currentPage === 0">
                             <v-card-title>Matches</v-card-title>
+                            <v-btn icon small @click="addMatch()" class="float-right"><v-icon>mdi-plus-box</v-icon></v-btn>
                             <v-card-text>
-                                <v-simple-table>
-                                    <template v-slot:default>
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Players</th>
-                                                <th v-for="header of trackedDetails()" :key="header.name">
-                                                    {{ header.name }}
-                                                </th>
-                                                <th width="100px">
-                                                    Actions<br>
-                                                    <v-btn icon small @click="addMatch()"><v-icon>mdi-plus-box</v-icon></v-btn>
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="(item, index) in matches" v-if="!item.finished" :key="index">
-                                                <td>{{ localeDate(item.date) }}</td>
-                                                <td>{{ item.players.join(", ") }}</td>
-                                                <td v-for="header of trackedDetails()" :key="'m' + index + '-' + header.name">
-                                                    {{ item.additionalData[header.name] }}
-                                                </td>
-                                                <td align="right">
-                                                    <v-btn fab x-small @click="editMatch(index)"><v-icon>mdi-pencil</v-icon></v-btn>
-                                                    <v-btn fab x-small @click="finishMatch(index)"><v-icon>mdi-check</v-icon></v-btn>
-                                                </td>
-                                            </tr>
-                                        </tbody>
+                                <v-data-table :headers="tableHeaders" :items="notFinishedMatches" sort-by="date">
+                                    <template v-slot:item.date="{ item }">{{ localeDate(item.date) }}</template>
+                                    <template v-slot:item.players="{ item }">{{ item.players.join(", ") }}</template>
+                                    <template v-slot:item.actions="{ item }">
+                                        <v-btn fab x-small @click="editMatch(index)"><v-icon>mdi-pencil</v-icon></v-btn>
+                                        <v-btn fab x-small @click="finishMatch(index)"><v-icon>mdi-check</v-icon></v-btn>
                                     </template>
-                                </v-simple-table>
+                                </v-data-table>
                             </v-card-text>
                         </v-card>
                         <v-card v-if="currentPage === 1">
@@ -421,6 +400,17 @@
                 await this.updateSchema();
                 await this.updateConfig();
                 await this.updatePlayers();
+            },
+            computed: {
+                tableHeaders() {
+                    const th = [{text: 'Date', value: 'date'}, {text: 'Players', value: 'players', sortable: false}]
+                    th.push(... this.schema.filter(e => { return e.displayInOverview }).map(e => { return {text: e.name, value: 'additionalData.' + e.name, sortable: false} }));
+                    th.push({text: 'Actions', value: 'actions', sortable: false, align: 'end'});
+                    return th;
+                },
+                notFinishedMatches() {
+                    return this.matches.filter(e => { return !e.finished });
+                }
             }
         })
     </script>
