@@ -88,8 +88,8 @@
                                     <template v-slot:item.date="{ item }">{{ localeDate(item.date) }}</template>
                                     <template v-slot:item.players="{ item }">{{ item.players.join(", ") }}</template>
                                     <template v-slot:item.actions="{ item }">
-                                        <v-btn fab x-small @click="editMatch(index)"><v-icon>mdi-pencil</v-icon></v-btn>
-                                        <v-btn fab x-small @click="finishMatch(index)"><v-icon>mdi-check</v-icon></v-btn>
+                                        <v-btn fab x-small @click="editMatch(item.id)"><v-icon>mdi-pencil</v-icon></v-btn>
+                                        <v-btn fab x-small @click="finishMatch(item.id)"><v-icon>mdi-check</v-icon></v-btn>
                                     </template>
                                 </v-data-table>
                             </v-card-text>
@@ -409,7 +409,7 @@
                     return th;
                 },
                 notFinishedMatches() {
-                    return this.matches.filter(e => { return !e.finished });
+                    return this.matches.map((e, idx) => { e.id = idx; return e; }).filter(e => { return !e.finished });
                 }
             }
         })
