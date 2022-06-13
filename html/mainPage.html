@@ -284,8 +284,7 @@
                     this.finishDialog = true;
                 },
                 async confirmHide() {
-                    let match = await axios.get("api/match?matchId=" + this.editIndex);
-                    let matchData = match.data;
+                    let matchData = this.matches[this.editIndex];
                     matchData.finished = true;
                     await axios.patch("api/match?matchId=" + this.editIndex, {match: matchData});
                     await this.updateMatches();
