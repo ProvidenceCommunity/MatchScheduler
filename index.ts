@@ -9,7 +9,7 @@ async function main() {
 
     await loadDatabase();
 
-    app.use(session({ secret: "SomethingSomething" }));
+    app.use(session({ secret: "SomethingSomething", name: "scheduler.session" }));
     app.use(bodyParser.json());
     app.use(getServerConfig().pathBase, router);
 
