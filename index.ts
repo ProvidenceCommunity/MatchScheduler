@@ -11,7 +11,7 @@ async function main() {
 
     app.use(session({ secret: "SomethingSomething", name: "scheduler.session" }));
     app.use(bodyParser.json());
-    app.use(getServerConfig().pathBase, router);
+    app.use("/" + getServerConfig().pathBase, router);
 
     app.listen(getServerConfig().port, getServerConfig().host, () => {
         console.log(`Server listening on ${getServerConfig().host}:${getServerConfig().port}/${getServerConfig().pathBase}`);
